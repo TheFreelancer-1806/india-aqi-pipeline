@@ -1,0 +1,53 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "ETL: incremental run",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.etl",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "ETL: dry run (no database)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.etl",
+      "args": ["--dry-run", "-v"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "ETL: force backfill",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.etl",
+      "args": ["--backfill"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Report: regenerate docs/FINDINGS.md",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.report",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Dashboard: streamlit run app.py",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "streamlit",
+      "args": ["run", "app.py", "--server.port", "8501"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ]
+}

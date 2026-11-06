@@ -1,0 +1,36 @@
+{
+  // Interpreter: the project virtual environment, so VS Code, the integrated
+  // terminal and the Testing sidebar all agree on which Python is in use.
+  "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+  "python.terminal.activateEnvironment": true,
+
+  // Tests: pytest.ini already deselects the `network` marker by default, so the
+  // Testing sidebar shows the offline suite plus the SQL integration tests.
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["tests"],
+
+  // src/ is a package imported from the repo root (app.py does `from src...`).
+  "python.analysis.extraPaths": ["${workspaceFolder}"],
+  "python.analysis.autoImportCompletions": true,
+
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    ".local": true
+  },
+  "search.exclude": {
+    ".venv": true,
+    ".local": true
+  },
+
+  "[python]": {
+    "editor.rulers": [88],
+    "editor.trimAutoWhitespace": true
+  },
+  "[sql]": {
+    "editor.rulers": [88]
+  },
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true
+}

@@ -131,7 +131,20 @@ function Stop-Server {
         Write-Host 'No cluster to stop.' -ForegroundColor Yellow
         return
     }
+    if (-not (Test-ServerUp)) {
+        Write-Host "Not running on port $Port; nothing to stop." -ForegroundColor Yellow
+        return
+    }
     & (Get-Exe 'pg_ctl') --pgdata=$PgData --mode=fast -w stop
+    # Report what actually happened. Reporting success on a failed pg_ctl is
+    # worse than reporting nothing: it sends you looking for the problem
+    # somewhere else.
+    if ($LASTEXITCODE -ne 0) {
+        throw "pg_ctl stop failed with exit code $LASTEXITCODE; the server may still be running."
+    }
+    if (Test-ServerUp) {
+        throw "pg_ctl reported success but the server is still accepting connections on port $Port."
+    }
     Write-Host 'Stopped.' -ForegroundColor Green
 }
 
