@@ -1,0 +1,93 @@
+name: CI
+
+# Verifies the SQL layer against a real PostgreSQL server. The rolling averages,
+# LAG deltas, completeness gates and anomaly flags are SQL, so testing only the
+# Python would leave the logic that matters uncovered.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests (Python ${{ matrix.python-version }}, Postgres 16)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: aqi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/aqi_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Unit tests and SQL integration tests
+        run: pytest -v
+
+      - name: End-to-end pipeline against the service container
+        # Proves the real thing: live API -> staging -> clean -> mart, then a
+        # second run to show the load is idempotent.
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/aqi_test
+          BACKFILL_DAYS: "10"
+        run: |
+          python -m src.etl --backfill
+          python -m src.etl
+          python -m src.report --stdout
+
+  api-contract:
+    name: Live API contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Informational: an upstream outage should not block a merge, but it should
+    # be visible.
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Open-Meteo contract tests
+        run: pytest -m network -v

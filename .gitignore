@@ -1,0 +1,31 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Secrets & environment variables
+.env
+.streamlit/secrets.toml
+
+# Local throwaway Postgres instance + downloaded binaries (scripts/local_pg.ps1)
+.local/
+
+# Pytest & coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Exported artifacts
+exports/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

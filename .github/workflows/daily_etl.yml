@@ -1,0 +1,86 @@
+name: Daily AQI pipeline
+
+# The scheduled run is the point of the project: nobody has to be at a keyboard
+# for the warehouse to stay current.
+on:
+  schedule:
+    # 01:00 UTC = 06:30 IST. Late enough that the previous IST day is complete.
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+    inputs:
+      backfill:
+        description: "Force the full backfill window instead of the incremental one"
+        type: boolean
+        default: false
+      past_days:
+        description: "Explicit extraction window in days (overrides backfill; max 92)"
+        type: string
+        default: ""
+
+concurrency:
+  # Never let a manual run and the cron run write the warehouse at the same time.
+  group: aqi-pipeline-write
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  etl:
+    name: Extract, load, transform
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Unit tests
+        # The offline suite gates the production run: a cleaning regression fails
+        # here rather than landing bad rows in the warehouse.
+        run: pytest tests/test_etl_clean.py -q
+
+      - name: Run pipeline
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -n "${{ inputs.past_days }}" ]; then
+            python -m src.etl --past-days "${{ inputs.past_days }}"
+          elif [ "${{ inputs.backfill }}" = "true" ]; then
+            python -m src.etl --backfill
+          else
+            python -m src.etl
+          fi
+
+      - name: Refresh findings report
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m src.report
+
+      - name: Upload findings as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: findings-${{ github.run_number }}
+          path: docs/FINDINGS.md
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Job summary
+        if: always()
+        run: |
+          echo "### Daily AQI pipeline" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Outcome: \`${{ job.status }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f docs/FINDINGS.md ]; then
+            sed -n '1,12p' docs/FINDINGS.md >> "$GITHUB_STEP_SUMMARY"
+          fi
