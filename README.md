@@ -2,8 +2,8 @@
 
 **API → PostgreSQL → dashboard, on a schedule, with nobody at the keyboard.**
 
-[![Daily pipeline](https://github.com/USERNAME/REPO/actions/workflows/daily_etl.yml/badge.svg)](../../actions/workflows/daily_etl.yml)
-[![CI](https://github.com/USERNAME/REPO/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+[![Daily pipeline](https://github.com/TheFreelancer-1806/india-aqi-pipeline/actions/workflows/daily_etl.yml/badge.svg)](../../actions/workflows/daily_etl.yml)
+[![CI](https://github.com/TheFreelancer-1806/india-aqi-pipeline/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
 ![PostgreSQL 16](https://img.shields.io/badge/postgresql-16-336791)
 
@@ -14,8 +14,6 @@ set of rolling-window analytics. A Streamlit dashboard reads the analytical
 layer and refreshes itself. [`docs/FINDINGS.md`](docs/FINDINGS.md) is
 regenerated from the warehouse on every run, so the write-up never drifts from
 the data.
-
-> Replace `USERNAME/REPO` in the badge URLs above once you push this.
 
 ---
 
