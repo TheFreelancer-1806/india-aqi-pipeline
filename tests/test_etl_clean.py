@@ -220,10 +220,22 @@ def test_decide_window_backfills_only_when_empty():
 @pytest.mark.parametrize(
     "given",
     [
+        # Plain forms.
         "postgres://u:p@host/db",
         "postgresql://u:p@host/db",
         "postgresql+psycopg2://u:p@host/db",
         "  postgres://u:p@host/db  ",
+        "postgres://u:p@host/db\n",
+        # What people actually paste. Neon's "psql" tab, a whole .env line,
+        # and anything that picked up quotes on the way.
+        "psql 'postgresql://u:p@host/db'",
+        "psql \"postgres://u:p@host/db\"",
+        "PSQL 'postgres://u:p@host/db'",
+        "'postgresql://u:p@host/db'",
+        '"postgres://u:p@host/db"',
+        "DATABASE_URL=postgresql://u:p@host/db",
+        'DATABASE_URL="postgres://u:p@host/db"',
+        "export DATABASE_URL='postgresql://u:p@host/db'",
     ],
 )
 def test_normalize_database_url(given):
@@ -231,9 +243,27 @@ def test_normalize_database_url(given):
 
 
 def test_normalize_preserves_query_string():
-    normalized = normalize_database_url("postgres://u:p@host/db?sslmode=require")
-    assert normalized.endswith("/db?sslmode=require")
-    assert normalized.startswith("postgresql+psycopg2://")
+    normalized = normalize_database_url(
+        "psql 'postgres://u:p@ep-x.aws.neon.tech/neondb?sslmode=require&channel_binding=require'"
+    )
+    assert normalized == (
+        "postgresql+psycopg2://u:p@ep-x.aws.neon.tech/neondb"
+        "?sslmode=require&channel_binding=require"
+    )
+
+
+def test_normalize_rejects_a_non_uri_without_echoing_it():
+    secret = "hunter2-not-a-uri"
+    with pytest.raises(ValueError) as excinfo:
+        normalize_database_url(secret)
+    message = str(excinfo.value)
+    assert "does not look like a connection URI" in message
+    assert secret not in message, "error message must not leak the value"
+
+
+def test_normalize_rejects_a_non_postgres_scheme():
+    with pytest.raises(ValueError, match="targets PostgreSQL"):
+        normalize_database_url("mysql://u:p@host/db")
 
 
 # ---------------------------------------------------------------------------

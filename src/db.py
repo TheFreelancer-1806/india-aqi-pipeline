@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -21,18 +22,65 @@ SCHEMA = "aqi_pipeline"
 # ---------------------------------------------------------------------------
 # Engine
 # ---------------------------------------------------------------------------
+_SCHEME_RE = re.compile(r"^(?P<scheme>[A-Za-z][A-Za-z0-9+.\-_]*)://")
+
+
 def normalize_database_url(url: str) -> str:
     """Normalize a connection string to an explicit SQLAlchemy psycopg2 URL.
 
-    Hosted providers hand out ``postgres://`` URLs, which SQLAlchemy 2.x no
-    longer accepts as a dialect name.
+    Tolerates the forms a connection string is actually pasted in, because the
+    failure mode otherwise is an opaque "Could not parse SQLAlchemy URL" an hour
+    into a scheduled run:
+
+    * ``postgres://`` — handed out by Neon, Supabase, Heroku and Render;
+      SQLAlchemy 2.x no longer accepts it as a dialect name.
+    * ``psql 'postgresql://...'`` — what Neon's *psql* tab copies.
+    * ``DATABASE_URL=postgresql://...`` — a whole .env line.
+    * Surrounding single or double quotes, and stray whitespace or newlines.
     """
-    url = url.strip()
-    if url.startswith("postgres://"):
-        url = "postgresql://" + url[len("postgres://") :]
-    if url.startswith("postgresql://"):
-        url = "postgresql+psycopg2://" + url[len("postgresql://") :]
-    return url
+    cleaned = url.strip()
+
+    # Repeat until nothing more peels off: a pasted .env line can be quoted, and
+    # a psql snippet is both prefixed and quoted.
+    for _ in range(4):
+        before = cleaned
+
+        if cleaned[:5].lower() == "psql ":
+            cleaned = cleaned[5:].strip()
+
+        lowered = cleaned.lower()
+        for prefix in ("database_url=", "export database_url="):
+            if lowered.startswith(prefix):
+                cleaned = cleaned[len(prefix) :].strip()
+                break
+
+        if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in "\"'":
+            cleaned = cleaned[1:-1].strip()
+
+        if cleaned == before:
+            break
+
+    match = _SCHEME_RE.match(cleaned)
+    if not match:
+        # Deliberately does not echo the value: it carries a password.
+        raise ValueError(
+            "DATABASE_URL does not look like a connection URI — no '<scheme>://' "
+            f"found in the {len(cleaned)} characters given. Paste the URI itself, "
+            "for example postgresql://user:password@host/dbname?sslmode=require, "
+            "with no surrounding quotes and no 'psql ' prefix."
+        )
+
+    scheme = match.group("scheme").lower()
+    remainder = cleaned[match.end() :]
+
+    if scheme in ("postgres", "postgresql"):
+        return "postgresql+psycopg2://" + remainder
+    if scheme.startswith("postgresql+") or scheme.startswith("postgres+"):
+        return cleaned
+    raise ValueError(
+        f"DATABASE_URL has scheme {scheme!r}; this pipeline targets PostgreSQL "
+        "and expects 'postgresql://'."
+    )
 
 
 def get_database_url(env_var: str = "DATABASE_URL") -> str:
