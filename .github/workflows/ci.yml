@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   test:
-    name: Tests (Python ${{ matrix.python-version }}, Postgres 16)
+    name: Tests (Python ${{ matrix.python-version }}, Postgres ${{ matrix.postgres-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -22,10 +22,15 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12"]
+        # 16 is the local development baseline; 18 is what Neon provisions for
+        # new projects, so production runs on it. The mart leans on window
+        # frames and FILTER aggregates, which are stable across both — this
+        # matrix is what keeps that claim honest.
+        postgres-version: ["16", "18"]
 
     services:
       postgres:
-        image: postgres:16
+        image: postgres:${{ matrix.postgres-version }}
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
